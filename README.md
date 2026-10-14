@@ -62,7 +62,9 @@ powershell -ExecutionPolicy Bypass -File provisionar.ps1 -Subscription <id-da-su
 
 Parâmetros opcionais: `-Location` (padrão `brazilsouth`), `-ResourceGroup`,
 `-Repo` (padrão `DevSecOps-Tr99/esteira-model-cob-jcl`), `-Reviewers`
-(logins que aprovam TI e PRD; o padrão é o usuário do `gh`), `-VmSize`
+(logins que aprovam TI e PRD; o padrão é todos os colaboradores que já
+aceitaram o convite do repositório de JCL, até 6 — rode de novo quando
+alguém novo aceitar), `-VmSize`
 (padrão `Standard_D2s_v4`), `-Az`/`-Gh` (caminho dos executáveis).
 
 O script faz, em ordem:

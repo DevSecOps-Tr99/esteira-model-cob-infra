@@ -204,7 +204,14 @@ try {
 
     # ------------------------------------------------------------------ 6
     Step "GitHub Environments (TU livre, TI e PRD com aprovacao)"
-    if ($Reviewers.Count -eq 0) { $Reviewers = @(gh api user --jq .login) }
+    # Padrao: todos os colaboradores que ja aceitaram o convite (o GitHub so
+    # aceita como aprovador quem tem acesso, e no maximo 6 por Environment).
+    # Convites pendentes ficam de fora - rode de novo depois que aceitarem.
+    if ($Reviewers.Count -eq 0) {
+        $Reviewers = @(gh api "repos/$Repo/collaborators" | Json | ForEach-Object { $_.login } | Select-Object -First 6)
+        $pendentes = @(gh api "repos/$Repo/invitations" | Json | ForEach-Object { $_.invitee.login })
+        if ($pendentes.Count) { Write-Host "    convites pendentes (ainda nao podem aprovar): $($pendentes -join ', ')" }
+    }
     $reviewerIds = @(foreach ($login in $Reviewers) { @{ type = 'User'; id = [int](gh api "users/$login" --jq .id) } })
     foreach ($amb in $Ambientes) {
         $body = if ($amb -eq 'TU') { @{} } else {
