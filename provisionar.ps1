@@ -119,7 +119,17 @@ try {
             $existe = & $Az keyvault secret list --vault-name $kvExistente --query "[?name=='$($chaves[$apelido])'].name" -o tsv
             if ($LASTEXITCODE -eq 0 -and $existe) {
                 az keyvault secret download --vault-name $kvExistente -n $chaves[$apelido] -f $privada -o none
-                $publicas[$apelido] = ((& ssh-keygen -y -f $privada) -join '').Trim() + " estm-$apelido"
+                # No Windows o download grava CRLF, que o ssh-keygen nao le
+                # ("error in libcrypto"): normaliza para LF, sem BOM.
+                $texto = ([IO.File]::ReadAllText($privada) -replace "`r`n", "`n").TrimEnd() + "`n"
+                [IO.File]::WriteAllText($privada, $texto, (New-Object Text.UTF8Encoding $false))
+                $derivada = (& ssh-keygen -y -f $privada) -join ''
+                if ($LASTEXITCODE -ne 0 -or $derivada -notmatch '^ssh-ed25519 \S+') {
+                    throw "nao foi possivel derivar a chave publica de $($chaves[$apelido]) - nada foi alterado"
+                }
+                # Mesmo formato da chave gerada na primeira execucao (tipo,
+                # chave, comentario): o cloud-init das VMs nao pode mudar.
+                $publicas[$apelido] = (($derivada.Trim() -split ' ')[0..1] -join ' ') + " estm-$apelido"
                 $reaproveitada = $true
             }
         }
