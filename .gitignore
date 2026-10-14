@@ -1,0 +1,4 @@
+# Saida temporaria de quem provisiona (nunca versionar chaves)
+*.pem
+id_*
+params.json

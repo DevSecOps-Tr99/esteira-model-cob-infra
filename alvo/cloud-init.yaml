@@ -1,0 +1,66 @@
+#cloud-config
+# Servidor de destino da POC (faz o papel do mainframe/LPAR que recebe o
+# JCL). Os marcadores __...__ sao preenchidos por main.bicep.
+#
+# Um usuario de deploy por ambiente, cada um com a propria chave SSH (a
+# privada fica so no Key Vault) e a propria pasta - TU, TI e PRD dividem a
+# mesma VM, mas nao as credenciais.
+package_update: true
+packages:
+  - python3
+
+groups:
+  - estm
+
+users:
+  - default
+  - name: estmtu
+    shell: /bin/bash
+    groups: estm
+    lock_passwd: true
+    ssh_authorized_keys:
+      - __KEY_TU__
+  - name: estmti
+    shell: /bin/bash
+    groups: estm
+    lock_passwd: true
+    ssh_authorized_keys:
+      - __KEY_TI__
+  - name: estmprd
+    shell: /bin/bash
+    groups: estm
+    lock_passwd: true
+    ssh_authorized_keys:
+      - __KEY_PRD__
+
+write_files:
+  - path: /etc/estm/ambientes.json
+    permissions: "0644"
+    content: |
+      {
+        "key_vault": "__KEY_VAULT__",
+        "usuarios": {
+          "estmtu":  {"ambiente": "TU",  "segredo_token": "estm-tu-token"},
+          "estmti":  {"ambiente": "TI",  "segredo_token": "estm-ti-token"},
+          "estmprd": {"ambiente": "PRD", "segredo_token": "estm-prd-token"}
+        }
+      }
+  - path: /usr/local/bin/estm-submit
+    permissions: "0755"
+    encoding: b64
+    content: __SUBMIT_B64__
+  - path: /etc/ssh/sshd_config.d/50-estm.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      AllowUsers estmtu estmti estmprd __ADMIN_USER__
+
+runcmd:
+  - install -d -m 2770 -o root -g estm /var/lib/estm
+  - install -d -m 0755 /srv/estm
+  - install -d -m 0750 -o estmtu -g estmtu /srv/estm/TU
+  - install -d -m 0750 -o estmti -g estmti /srv/estm/TI
+  - install -d -m 0750 -o estmprd -g estmprd /srv/estm/PRD
+  - systemctl reload ssh || systemctl reload sshd
