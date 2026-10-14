@@ -192,19 +192,6 @@ try {
     $knownHosts = "$alvoIp " + (($hostKey.Trim() -split ' ')[0..1] -join ' ')
     Write-Host "    $knownHosts"
 
-    Step "Runner self-hosted ($RunnerName) - instala e registra, alguns minutos"
-    $runners = gh api "repos/$Repo/actions/runners" | Json
-    foreach ($r in @($runners.runners | Where-Object { $_.status -eq 'offline' })) {
-        gh api -X DELETE "repos/$Repo/actions/runners/$($r.id)" | Out-Null
-        Write-Host "    runner offline $($r.name) removido"
-    }
-    $regToken = gh api -X POST "repos/$Repo/actions/runners/registration-token" --jq .token
-    $msg = az vm run-command invoke -g $ResourceGroup -n $runnerVm --command-id RunShellScript `
-        --scripts "@$(Join-Path $PSScriptRoot 'runner/registrar-runner.sh')" `
-        --parameters "https://github.com/$Repo" $regToken $RunnerName $RunnerLabels `
-        --query "value[0].message" -o tsv
-    Write-Host (($msg -split "`n" | Select-Object -Last 8) -join "`n")
-
     # ------------------------------------------------------------------ 6
     Step "GitHub Environments (TU livre, TI e PRD com aprovacao)"
     if ($Reviewers.Count -eq 0) { $Reviewers = @(gh api user --jq .login) }
@@ -238,6 +225,21 @@ try {
 
     Step "GitHub secret SPN_KV_DEV_SECRET"
     Invoke-WithStdin $Gh $spnCreds "secret set SPN_KV_DEV_SECRET --repo $Repo"
+
+    # Runner por ultimo: jobs ja enfileirados no repositorio so podem comecar
+    # depois que os Environments tem aprovacao e as variables/secret existem.
+    Step "Runner self-hosted ($RunnerName) - instala e registra, alguns minutos"
+    $runners = gh api "repos/$Repo/actions/runners" | Json
+    foreach ($r in @($runners.runners | Where-Object { $_.status -eq 'offline' })) {
+        gh api -X DELETE "repos/$Repo/actions/runners/$($r.id)" | Out-Null
+        Write-Host "    runner offline $($r.name) removido"
+    }
+    $regToken = gh api -X POST "repos/$Repo/actions/runners/registration-token" --jq .token
+    $msg = az vm run-command invoke -g $ResourceGroup -n $runnerVm --command-id RunShellScript `
+        --scripts "@$(Join-Path $PSScriptRoot 'runner/registrar-runner.sh')" `
+        --parameters "https://github.com/$Repo" $regToken $RunnerName $RunnerLabels `
+        --query "value[0].message" -o tsv
+    Write-Host (($msg -split "`n" | Select-Object -Last 8) -join "`n")
 
     Step "Pronto"
     Write-Host "Key Vault ........ $kv"
