@@ -39,6 +39,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Ambientes = @('TU', 'TI', 'PRD')
+# Com "powershell -File", "-Reviewers a,b,c" chega como um texto so.
+$Reviewers = @($Reviewers | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
 # Funcao simples (sem param/[Parameter]) de proposito: numa funcao avancada
 # o PowerShell tentaria casar flags como -o com -OutVariable/-OutBuffer.
