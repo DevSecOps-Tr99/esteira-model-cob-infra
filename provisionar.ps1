@@ -142,12 +142,18 @@ try {
 
     # ------------------------------------------------------------------ 3
     Step "Infra (main.bicep) - alguns minutos"
+    # VM ja criada nao aceita mudanca de customData (cloud-init): nas
+    # execucoes seguintes o Bicep atualiza o resto e deixa as VMs como estao.
+    $vmsExistentes = @(& $Az vm list -g $ResourceGroup --query "[?name=='vm-estm-alvo' || name=='vm-estm-runner'].name" -o tsv)
+    $criarVms = $vmsExistentes.Count -lt 2
+    Write-Host "    VMs: $(if ($criarVms) { 'serao criadas' } else { 'ja existem - mantidas como estao' })"
     $paramsFile = Join-Path $work 'params.json'
     @{
         '$schema'      = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#'
         contentVersion = '1.0.0.0'
         parameters     = @{
             location           = @{ value = $Location }
+            criarVms           = @{ value = $criarVms }
             runnerVmSize       = @{ value = $VmSize }
             alvoVmSize         = @{ value = $VmSize }
             adminPublicKey     = @{ value = $publicas['admin'] }

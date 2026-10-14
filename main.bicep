@@ -47,6 +47,9 @@ param alvoPrivateIp string = '10.60.1.10'
 @description('Horario do desligamento automatico diario (HHmm), fuso de Brasilia.')
 param autoShutdownTime string = '2200'
 
+@description('false quando as VMs ja existem. O customData (cloud-init) de uma VM nao pode mudar depois de criada, entao as VMs so sao criadas uma vez; o provisionar.ps1 detecta e passa false nas execucoes seguintes.')
+param criarVms bool = true
+
 var tags = {
   projeto: 'esteira-model-cob'
   ambiente: 'poc'
@@ -149,12 +152,12 @@ resource kvOperador 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-resource kvAlvo 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource kvAlvo 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (criarVms) {
   name: guid(kv.id, alvoVm.id, roleKvSecretsUser)
   scope: kv
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleKvSecretsUser)
-    principalId: alvoVm.identity.principalId
+    principalId: alvoVm!.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -181,7 +184,7 @@ resource alvoNic 'Microsoft.Network/networkInterfaces@2024-05-01' = {
   }
 }
 
-resource alvoVm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
+resource alvoVm 'Microsoft.Compute/virtualMachines@2024-07-01' = if (criarVms) {
   name: 'vm-${prefixo}-alvo'
   location: location
   tags: tags
@@ -250,7 +253,7 @@ resource runnerNic 'Microsoft.Network/networkInterfaces@2024-05-01' = {
   }
 }
 
-resource runnerVm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
+resource runnerVm 'Microsoft.Compute/virtualMachines@2024-07-01' = if (criarVms) {
   name: 'vm-${prefixo}-runner'
   location: location
   tags: tags
